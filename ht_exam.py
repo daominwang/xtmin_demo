@@ -9,7 +9,6 @@ import sys
 import json
 import jpush
 import random
-import demjson
 import asyncio
 import aiohttp
 import logging
