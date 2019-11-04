@@ -28,8 +28,9 @@ if not app_key or not master_secret or not log_path:
     sys.exit('配置文件异常，无法获取推送配置')
 
 logger = logging.getLogger(__name__)
-log_formatter = logging.Formatter('[%(asctime)s %(levelname)s] %(filename)s:%(lineno)s %(message)s')
-logging.basicConfig(level=logging.INFO, format=log_formatter)
+format_pattern = '[%(asctime)s %(levelname)s] %(filename)s:%(lineno)s %(message)s'
+log_formatter = logging.Formatter(format_pattern)
+logging.basicConfig(level=logging.INFO, format=format_pattern)
 file_handler = logging.FileHandler(j_push_config.get('log_path'), encoding='utf8')
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(log_formatter)
