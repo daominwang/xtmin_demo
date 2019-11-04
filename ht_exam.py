@@ -129,7 +129,12 @@ async def crawl_teacher_exam(conn, cursor):
             _url = _tree_elem.xpath('./a/@href')[0]
             _id = _url[_url.rindex('/') + 1:_url.rindex('.html')]
             title = _tree_elem.xpath('.//p[@class="item-tit"]/text()')[0]
-            if title not in key_word_list:
+            c_flag = False
+            for key in key_word_list:
+                if key in title:
+                    c_flag = True
+                    break
+            if not c_flag:
                 continue
             time = _tree_elem.xpath('.//p[@class="item-time"]/text()')[0]
             result = await data_exist(cursor, _id)
@@ -142,7 +147,12 @@ async def crawl_teacher_exam(conn, cursor):
             resp = await fetch(session, f'{base_url}?page={index}&tids={tids}')
             for item in (resp.get('data') or []):
                 if item and 'id' in item and 'title' in item and 'date' in item and 'url' in item:
-                    if item.get('title') not in key_word_list:
+                    c_flag = False
+                    for key in key_word_list:
+                        if key in item.get('title'):
+                            c_flag = True
+                            break
+                    if not c_flag:
                         continue
                     result = await data_exist(cursor, _id)
                     if not result:
@@ -173,7 +183,12 @@ async def crawl_government_exam(conn, cursor):
             _url = _tree_elem.xpath('./a/@href')[0]
             _id = _url[_url.rindex('/') + 1:_url.rindex('.html')]
             title = _tree_elem.xpath('.//p[@class="item-tit"]/text()')[0]
-            if title not in key_word_list:
+            c_flag = False
+            for key in key_word_list:
+                if key in title:
+                    c_flag = True
+                    break
+            if not c_flag:
                 continue
             time = _tree_elem.xpath('.//p[@class="item-time"]/text()')[0]
             result = await data_exist(cursor, _id)
@@ -186,7 +201,12 @@ async def crawl_government_exam(conn, cursor):
             resp = await fetch(session, f'{base_url}?page={index}&tids={tids}')
             for item in (resp.get('data') or []):
                 if item and 'id' in item and 'title' in item and 'date' in item and 'url' in item:
-                    if item.get('title') not in key_word_list:
+                    c_flag = False
+                    for key in key_word_list:
+                        if key in item.get('title'):
+                            c_flag = True
+                            break
+                    if not c_flag:
                         continue
                     result = await data_exist(cursor, _id)
                     if not result:
