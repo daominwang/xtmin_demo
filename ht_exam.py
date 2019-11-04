@@ -9,9 +9,11 @@ import sys
 import json
 import jpush
 import random
+import demjson
 import asyncio
 import aiohttp
 import logging
+import datetime
 import aiosqlite3
 from lxml import etree
 from dotenv import dotenv_values
@@ -43,6 +45,19 @@ key_word_list = [
     '四川省', '成都', '金堂', '青白江', '都江堰', '大邑', '彭州', '崇州'
 ]
 
+
+class JsonEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.strftime('%Y-%m-%d %H:%M:%S')
+        elif isinstance(obj, datetime.date):
+            return obj.strftime('%Y-%m-%d')
+        else:
+            return json.JSONEncoder.default(self, obj)
+
+
+encoder = JsonEncoder()
+encoder.ensure_ascii = False
 
 ua_list = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1',
