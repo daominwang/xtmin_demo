@@ -20,6 +20,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 j_push_config = dotenv_values('push.env')
 
+log_path = j_push_config.get('log_path')
+app_key = j_push_config.get('app_key')
+master_secret = j_push_config.get('master_secret')
+
+if not app_key or not master_secret or not log_path:
+    sys.exit('配置文件异常，无法获取推送配置')
+
 logger = logging.getLogger(__name__)
 log_formatter = logging.Formatter('[%(asctime)s %(levelname)s] %(filename)s:%(lineno)s %(message)s')
 logging.basicConfig(level=logging.INFO, format=log_formatter)
@@ -30,15 +37,11 @@ logger.addHandler(file_handler)
 
 host = 'http://m.sc.huatu.com'
 base_url = 'http://m.sc.huatu.com/index/Articlelist/getMoreArt/'
-app_key = j_push_config.get('app_key')
-master_secret = j_push_config.get('master_secret')
 
 key_word_list = [
     '四川省', '成都', '金堂', '青白江', '都江堰', '大邑', '彭州', '崇州'
 ]
 
-if not app_key or not master_secret:
-    sys.exit('配置文件异常，无法获取推送配置')
 
 ua_list = [
     'Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Mobile/15E148 Safari/604.1',
