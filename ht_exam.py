@@ -284,9 +284,9 @@ if __name__ == '__main__':
     pool = loop.run_until_complete(aiosqlite3.create_pool('./huatu.db', loop=loop, echo=True))
     loop.run_until_complete(init_table(pool))
     sched = AsyncIOScheduler(event_loop=loop)
-    sched.add_job(crawl_teacher_exam, args=[pool], trigger='interval', seconds=20)
-    sched.add_job(crawl_government_exam, args=[pool], trigger='interval', seconds=20)
-    sched.add_job(push_notice, args=[pool], trigger='interval', seconds=10)
+    sched.add_job(crawl_teacher_exam, args=[pool], trigger='interval', minutes=30)
+    sched.add_job(crawl_government_exam, args=[pool], trigger='interval', minutes=30)
+    sched.add_job(push_notice, args=[pool], trigger='interval', minutes=3)
     sched.start()
     try:
         loop.run_forever()
