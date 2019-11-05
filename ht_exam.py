@@ -85,7 +85,6 @@ ua_list = [
 _jpush = jpush.JPush(app_key, master_secret)
 push = _jpush.create_push()
 push.audience = jpush.all_
-
 push.platform = jpush.all_
 
 
@@ -97,24 +96,21 @@ def __dict_factory(cursor, row):
 
 
 insert_sql = 'INSERT INTO huatu (exam_id, exam_title, exam_url, pub_time, status, exam_type) VALUES (?, ?, ?, ?, ?, ?)'
-update_sql = 'UPDATE huatu SET exam_title=?, exam_url=?, update_time=current_timestamp, status=? WHERE exam_id=?'
+update_sql = 'UPDATE huatu SET exam_title=?, exam_url=?, pub_time=?, update_time=current_timestamp, status=? WHERE exam_id=?'
 
 
-async def init_db(loop):
-    conn = await aiosqlite3.connect('./huatu.db', loop=loop, echo=True)
-    conn.row_factory = __dict_factory
-    cursor = await conn.cursor()
-    create_sql = """
-            CREATE TABLE if NOT EXISTS huatu (id INTEGER PRIMARY KEY NOT NULL, exam_id INTEGER NOT NULL UNIQUE, exam_title CHAR (128), exam_url CHAR (128), pub_time TIMESTAMP, update_time TIMESTAMP DEFAULT (datetime('now', 'localtime')), build_time TIMESTAMP DEFAULT (datetime('now', 'localtime')), status CHAR (8), exam_type CHAR (8))
-                """
-    await cursor.execute(create_sql)
-    logger.info('init_db finish')
-    return conn, cursor
+async def init_table(pool):
+    with await pool.acquire() as conn:
+        create_sql = """
+                CREATE TABLE if NOT EXISTS huatu (id INTEGER PRIMARY KEY NOT NULL, exam_id INTEGER NOT NULL UNIQUE, exam_title CHAR (128), exam_url CHAR (128), pub_time TIMESTAMP, update_time TIMESTAMP DEFAULT (datetime('now', 'localtime')), build_time TIMESTAMP DEFAULT (datetime('now', 'localtime')), status CHAR (8), exam_type CHAR (8))
+                    """
+        await conn.execute(create_sql)
+        logger.info('init_db finish')
 
 
-async def close_db(conn, cursor):
-    await cursor.close()
-    await conn.close()
+async def close_connection_pool(pool):
+    await pool.clear()
+    pool.close()
     logger.info('close database')
 
 
@@ -130,121 +126,125 @@ async def fetch_teacher_exam_first_page(session, url):
         return resp_text
 
 
-async def crawl_teacher_exam(conn, cursor):
+async def crawl_teacher_exam(pool):
     logger.debug('enter crawl_teacher_exam')
-    # 获取教师公招招聘
-    async with aiohttp.ClientSession(headers={'User-Agent': random.choice(ua_list)}) as session:
-        resp_text = await fetch_teacher_exam_first_page(session, 'http://m.sc.huatu.com/list/jiaoshi/kaoshi/')
-        tree = etree.HTML(resp_text)
-        tids = tree.xpath('//input[@name="tids"]/@value')[0]
-        i_lst = []
-        u_lst = []
-        for _tree_elem in tree.xpath('//ul[@class="list"]/li'):
-            _url = _tree_elem.xpath('./a/@href')[0]
-            _id = _url[_url.rindex('/') + 1:_url.rindex('.html')]
-            title = _tree_elem.xpath('.//p[@class="item-tit"]/text()')[0]
-            c_flag = False
-            for key in key_word_list:
-                if key in title:
-                    c_flag = True
-                    break
-            if not c_flag:
-                continue
-            time = _tree_elem.xpath('.//p[@class="item-time"]/text()')[0]
-            result = await data_exist(cursor, _id)
-            if not result:
-                i_lst.append((_id, title, f'{host}{_url}', dp(time), 'pre_notice', 'teacher'))
-            else:
-                if title != result.get('title'):
-                    u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
-        for index in range(2, 4):
-            resp = await fetch(session, f'{base_url}?page={index}&tids={tids}')
-            for item in (resp.get('data') or []):
-                if item and 'id' in item and 'title' in item and 'date' in item and 'url' in item:
-                    c_flag = False
-                    for key in key_word_list:
-                        if key in item.get('title'):
-                            c_flag = True
-                            break
-                    if not c_flag:
-                        continue
-                    result = await data_exist(cursor, _id)
-                    if not result:
-                        i_lst.append((item.get('id'), item.get('title'), f"{host}{item.get('url')}", dp(item.get('date')), 'pre_notice', 'teacher'))
-                    else:
-                        if title != result.get('title'):
-                            u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
-        logger.debug('crawl teacher exam finish')
-        logger.info(f"add teacher data {encoder.encode(i_lst)}")
-        logger.info(f"update teacher data {encoder.encode(u_lst)}")
-        if i_lst:
-            await cursor.executemany(insert_sql, tuple(i_lst))
-        if u_lst:
-            await cursor.executemany(update_sql, tuple(u_lst))
-        await conn.commit()
+    with await pool.acquire() as conn:
+        conn.row_factory = __dict_factory
+        # 获取教师公招招聘
+        async with aiohttp.ClientSession(headers={'User-Agent': random.choice(ua_list)}) as session:
+            resp_text = await fetch_teacher_exam_first_page(session, 'http://m.sc.huatu.com/list/jiaoshi/kaoshi/')
+            tree = etree.HTML(resp_text)
+            tids = tree.xpath('//input[@name="tids"]/@value')[0]
+            i_lst = []
+            u_lst = []
+            for _tree_elem in tree.xpath('//ul[@class="list"]/li'):
+                _url = _tree_elem.xpath('./a/@href')[0]
+                _id = _url[_url.rindex('/') + 1:_url.rindex('.html')]
+                title = str(_tree_elem.xpath('.//p[@class="item-tit"]/text()')[0])
+                c_flag = False
+                for key in key_word_list:
+                    if key in title:
+                        c_flag = True
+                        break
+                if not c_flag:
+                    continue
+                time = _tree_elem.xpath('.//p[@class="item-time"]/text()')[0]
+                result = await data_exist(conn, _id)
+                if not result:
+                    i_lst.append((_id, title, f'{host}{_url}', dp(time), 'pre_notice', 'teacher'))
+                else:
+                    if title != result.get('exam_title'):
+                        u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
+            for index in range(2, 4):
+                resp = await fetch(session, f'{base_url}?page={index}&tids={tids}')
+                for item in (resp.get('data') or []):
+                    if item and 'id' in item and 'title' in item and 'date' in item and 'url' in item:
+                        c_flag = False
+                        for key in key_word_list:
+                            if key in item.get('title'):
+                                c_flag = True
+                                break
+                        if not c_flag:
+                            continue
+                        result = await data_exist(conn, item.get('id'))
+                        if not result:
+                            i_lst.append((item.get('id'), item.get('title'), f"{host}{item.get('url')}", dp(item.get('date')), 'pre_notice', 'teacher'))
+                        else:
+                            if item.get('title') != result.get('exam_title'):
+                                u_lst.append((item.get('title'), f'{host}{_url}', dp(time), item.get('id'), 'update_notice'))
+            logger.debug('crawl teacher exam finish')
+            logger.info(f"add teacher data {encoder.encode(i_lst)}")
+            logger.info(f"update teacher data {encoder.encode(u_lst)}")
+            if i_lst:
+                await conn.executemany(insert_sql, tuple(i_lst))
+            if u_lst:
+                await conn.executemany(update_sql, tuple(u_lst))
+            await conn.commit()
 
 
-async def crawl_government_exam(conn, cursor):
+async def crawl_government_exam(pool):
     logger.debug('enter crawl_government_exam')
-    # 获取事业单位招聘
-    async with aiohttp.ClientSession(headers={'User-Agent': random.choice(ua_list)}) as session:
-        resp_text = await fetch_teacher_exam_first_page(session, 'http://m.sc.huatu.com/list/sydw/kaoshi/')
-        tree = etree.HTML(resp_text)
-        tids = tree.xpath('//input[@name="tids"]/@value')[0]
-        i_lst = []
-        u_lst = []
-        for _tree_elem in tree.xpath('//ul[@class="list"]/li'):
-            _url = _tree_elem.xpath('./a/@href')[0]
-            _id = _url[_url.rindex('/') + 1:_url.rindex('.html')]
-            title = _tree_elem.xpath('.//p[@class="item-tit"]/text()')[0]
-            c_flag = False
-            for key in key_word_list:
-                if key in title:
-                    c_flag = True
-                    break
-            if not c_flag:
-                continue
-            time = _tree_elem.xpath('.//p[@class="item-time"]/text()')[0]
-            result = await data_exist(cursor, _id)
-            if not result:
-                i_lst.append((_id, title, f'{host}{_url}', dp(time), 'pre_notice', 'gov'))
-            else:
-                if title != result.get('title'):
-                    u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
-        for index in range(2, 4):
-            resp = await fetch(session, f'{base_url}?page={index}&tids={tids}')
-            for item in (resp.get('data') or []):
-                if item and 'id' in item and 'title' in item and 'date' in item and 'url' in item:
-                    c_flag = False
-                    for key in key_word_list:
-                        if key in item.get('title'):
-                            c_flag = True
-                            break
-                    if not c_flag:
-                        continue
-                    result = await data_exist(cursor, _id)
-                    if not result:
-                        i_lst.append((item.get('id'), item.get('title'), f"{host}{item.get('url')}", dp(item.get('date')), 'pre_notice', 'gov'))
-                    else:
-                        if title != result.get('title'):
-                            u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
-        logger.debug('crawl government exam finish')
-        logger.info(f"add teacher data {encoder.encode(i_lst)}")
-        logger.info(f"update teacher data {encoder.encode(u_lst)}")
-        if i_lst:
-            await cursor.executemany(insert_sql, tuple(i_lst))
-        if u_lst:
-            await cursor.executemany(update_sql, tuple(u_lst))
-        await conn.commit()
+    with await pool.acquire() as conn:
+        conn.row_factory = __dict_factory
+        # 获取事业单位招聘
+        async with aiohttp.ClientSession(headers={'User-Agent': random.choice(ua_list)}) as session:
+            resp_text = await fetch_teacher_exam_first_page(session, 'http://m.sc.huatu.com/list/sydw/kaoshi/')
+            tree = etree.HTML(resp_text)
+            tids = tree.xpath('//input[@name="tids"]/@value')[0]
+            i_lst = []
+            u_lst = []
+            for _tree_elem in tree.xpath('//ul[@class="list"]/li'):
+                _url = _tree_elem.xpath('./a/@href')[0]
+                _id = _url[_url.rindex('/') + 1:_url.rindex('.html')]
+                title = str(_tree_elem.xpath('.//p[@class="item-tit"]/text()')[0])
+                c_flag = False
+                for key in key_word_list:
+                    if key in title:
+                        c_flag = True
+                        break
+                if not c_flag:
+                    continue
+                time = _tree_elem.xpath('.//p[@class="item-time"]/text()')[0]
+                result = await data_exist(conn, _id)
+                if not result:
+                    i_lst.append((_id, title, f'{host}{_url}', dp(time), 'pre_notice', 'gov'))
+                else:
+                    if title != result.get('exam_title'):
+                        u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
+            for index in range(2, 4):
+                resp = await fetch(session, f'{base_url}?page={index}&tids={tids}')
+                for item in (resp.get('data') or []):
+                    if item and 'id' in item and 'title' in item and 'date' in item and 'url' in item:
+                        c_flag = False
+                        for key in key_word_list:
+                            if key in item.get('title'):
+                                c_flag = True
+                                break
+                        if not c_flag:
+                            continue
+                        result = await data_exist(conn, item.get('id'))
+                        if not result:
+                            i_lst.append((item.get('id'), item.get('title'), f"{host}{item.get('url')}", dp(item.get('date')), 'pre_notice', 'gov'))
+                        else:
+                            if item.get('title') != result.get('exam_title'):
+                                u_lst.append((item.get('title'), f'{host}{_url}', dp(time), item.get('id'), 'update_notice'))
+            logger.debug('crawl government exam finish')
+            logger.info(f"add teacher data {encoder.encode(i_lst)}")
+            logger.info(f"update teacher data {encoder.encode(u_lst)}")
+            if i_lst:
+                await conn.executemany(insert_sql, tuple(i_lst))
+            if u_lst:
+                await conn.executemany(update_sql, tuple(u_lst))
+            await conn.commit()
 
 
-async def data_exist(cursor, _id):
-    await cursor.execute('SELECT exam_title FROM huatu WHERE exam_id=? limit 1', (_id,))
-    result = await cursor.fetchone()
+async def data_exist(conn, _id):
+    _result = await conn.execute('SELECT exam_title FROM huatu WHERE exam_id=? limit 1', (_id,))
+    result = await _result.fetchone()
     return result
 
 
-async def push_notice(conn, cursor):
+async def push_notice(pool):
     def j_push(exam_info):
         try:
             push.notification = jpush.notification(
@@ -267,26 +267,29 @@ async def push_notice(conn, cursor):
         except:
             logger.error("Exception")
 
-    logger.info('enter push notice')
-    await cursor.execute("SELECT exam_id, exam_title, exam_url, pub_time, exam_type FROM huatu WHERE status='pre_notice'")
-    result = await cursor.fetchall()
-    logger.debug(result)
-    for item in result:
-        j_push(item)
-        await cursor.execute("UPDATE huatu SET status='noticed', update_time=CURRENT_TIMESTAMP WHERE exam_id=?", (item.get('exam_id'),))
-        await conn.commit()
+    with await pool.acquire() as conn:
+        conn.row_factory = __dict_factory
+        logger.info('enter push notice')
+        _result = await conn.execute("SELECT exam_id, exam_title, exam_url, pub_time, exam_type FROM huatu WHERE status='pre_notice'")
+        result = await _result.fetchall()
+        logger.debug(result)
+        for item in result:
+            j_push(item)
+            await conn.execute("UPDATE huatu SET status='noticed', update_time=CURRENT_TIMESTAMP WHERE exam_id=?", (item.get('exam_id'),))
+            await conn.commit()
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    conn, cursor = loop.run_until_complete(init_db(loop))
+    pool = loop.run_until_complete(aiosqlite3.create_pool('./huatu.db', loop=loop, echo=True))
+    loop.run_until_complete(init_table(pool))
     sched = AsyncIOScheduler(event_loop=loop)
-    sched.add_job(crawl_teacher_exam, args=[conn, cursor], trigger='interval', minutes=30)
-    sched.add_job(crawl_government_exam, args=[conn, cursor], trigger='interval', minutes=30)
-    sched.add_job(push_notice, args=[conn, cursor], trigger='interval', minutes=3)
+    sched.add_job(crawl_teacher_exam, args=[pool], trigger='interval', seconds=20)
+    sched.add_job(crawl_government_exam, args=[pool], trigger='interval', seconds=20)
+    sched.add_job(push_notice, args=[pool], trigger='interval', seconds=10)
     sched.start()
     try:
         loop.run_forever()
     except KeyboardInterrupt:
-        loop.run_until_complete(close_db(conn, cursor))
+        loop.run_until_complete(close_connection_pool(pool))
         logger.info('Shutting Down!')
