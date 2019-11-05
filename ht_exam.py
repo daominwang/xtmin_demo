@@ -250,9 +250,9 @@ async def push_notice(conn, cursor):
             push.notification = jpush.notification(
                 android={
                     'title': f"新的{'事业单位' if exam_info.get('exam_type') == 'gov' else '教师公招'}公告",
-                    'alert': f'''
-                        地址：{exam_info.get('exam_url')}
+                    'alert': f'''地址：{exam_info.get('exam_url')}
                         标题：{exam_info.get('exam_title')}
+                        发布时间:{exam_info.get('pub_time')}
                         '''
                 }
             )
@@ -268,12 +268,12 @@ async def push_notice(conn, cursor):
             logger.error("Exception")
 
     logger.info('enter push notice')
-    await cursor.execute("SELECT exam_title, exam_url, pub_time, exam_type FROM huatu WHERE status='pre_notice'")
+    await cursor.execute("SELECT exam_id, exam_title, exam_url, pub_time, exam_type FROM huatu WHERE status='pre_notice'")
     result = await cursor.fetchall()
     logger.debug(result)
     for item in result:
         j_push(item)
-        await cursor.execute("UPDATE huatu SET exam_type='noticed', update_time=CURRENT_TIMESTAMP WHERE exam_id=?", (item.get('exam_id'),))
+        await cursor.execute("UPDATE huatu SET status='noticed', update_time=CURRENT_TIMESTAMP WHERE exam_id=?", (item.get('exam_id'),))
         await conn.commit()
 
 
