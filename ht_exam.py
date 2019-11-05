@@ -41,7 +41,7 @@ host = 'http://m.sc.huatu.com'
 base_url = 'http://m.sc.huatu.com/index/Articlelist/getMoreArt/'
 
 key_word_list = [
-    '四川省', '成都', '金堂', '青白江', '都江堰', '大邑', '彭州', '崇州'
+    '四川省', '四川', '成都', '金堂', '青白江', '都江堰', '大邑', '彭州', '崇州'
 ]
 
 
