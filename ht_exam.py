@@ -175,8 +175,8 @@ async def crawl_teacher_exam(conn, cursor):
                         if title != result.get('title'):
                             u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
         logger.debug('crawl teacher exam finish')
-        logger.info(f"add teacher data {json.dumps(i_lst, ensure_ascii=False)}")
-        logger.info(f"update teacher data {json.dumps(i_lst, ensure_ascii=False)}")
+        logger.info(f"add teacher data {encoder.encode(i_lst)}")
+        logger.info(f"update teacher data {encoder.encode(u_lst)}")
         if i_lst:
             await cursor.executemany(insert_sql, tuple(i_lst))
         if u_lst:
@@ -229,8 +229,8 @@ async def crawl_government_exam(conn, cursor):
                         if title != result.get('title'):
                             u_lst.append((title, f'{host}{_url}', dp(time), _id, 'update_notice'))
         logger.debug('crawl government exam finish')
-        logger.info(f"add teacher data {json.dumps(i_lst, ensure_ascii=False)}")
-        logger.info(f"update teacher data {json.dumps(i_lst, ensure_ascii=False)}")
+        logger.info(f"add teacher data {encoder.encode(i_lst)}")
+        logger.info(f"update teacher data {encoder.encode(u_lst)}")
         if i_lst:
             await cursor.executemany(insert_sql, tuple(i_lst))
         if u_lst:
