@@ -280,6 +280,7 @@ if __name__ == '__main__':
     sched = AsyncIOScheduler(event_loop=loop)
     sched.add_job(crawl_teacher_exam, args=[conn, cursor], trigger='interval', minutes=30)
     sched.add_job(crawl_government_exam, args=[conn, cursor], trigger='interval', minutes=30)
+    sched.add_job(push_notice, args=[conn, cursor], trigger='interval', minutes=3)
     sched.start()
     try:
         loop.run_forever()
