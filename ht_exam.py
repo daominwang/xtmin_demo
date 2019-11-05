@@ -257,6 +257,7 @@ async def push_notice(conn, cursor):
                 }
             )
             push.send()
+            logger.info(f"push notice {encoder.encode(exam_info)}")
         except jpush.common.Unauthorized:
             logger.error('Unauthorized')
         except jpush.common.APIConnectionException:
@@ -266,11 +267,13 @@ async def push_notice(conn, cursor):
         except:
             logger.error("Exception")
 
+    logger.info('enter push notice')
     await cursor.execute("SELECT exam_title, exam_url, pub_time, exam_type FROM huatu WHERE status='pre_notice'")
     result = await cursor.fetchall()
+    logger.debug(result)
     for item in result:
         j_push(item)
-        await cursor.execute("UPDATE huatu SET exam_type='noticed', update_time=CURRENT_TIMESTAMP WHERE exam_id=?", item.get('exam_id'))
+        await cursor.execute("UPDATE huatu SET exam_type='noticed', update_time=CURRENT_TIMESTAMP WHERE exam_id=?", (item.get('exam_id'),))
         await conn.commit()
 
 
