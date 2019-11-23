@@ -283,6 +283,8 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     pool = loop.run_until_complete(aiosqlite3.create_pool('./huatu.db', loop=loop, echo=True))
     loop.run_until_complete(init_table(pool))
+    loop.run_until_complete(crawl_teacher_exam(pool))
+    loop.run_until_complete(crawl_government_exam(pool))
     sched = AsyncIOScheduler(event_loop=loop)
     sched.add_job(crawl_teacher_exam, args=[pool], trigger='interval', minutes=30)
     sched.add_job(crawl_government_exam, args=[pool], trigger='interval', minutes=30)
