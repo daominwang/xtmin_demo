@@ -46,7 +46,6 @@ ua_list = [
 
 headers = {
     'Host': 'www.rotowire.com',
-    'Connection': 'keep-alive',
     'Pragma': 'no-cache',
     'Cache-Control': 'no-cache',
     'Upgrade-Insecure-Requests': '1',
