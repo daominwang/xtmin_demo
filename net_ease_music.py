@@ -65,35 +65,12 @@ class NetEaseMusic:
             'Pragma': 'no-cache',
             'Cache-Control': 'no-cache'
         }
-        self.proxies = self._proxies()
         self.session = requests.Session()
         self.SQL_FILE = './netease.db'
         self.conn, self.cursor = None, None  # 数据库的连接和游标
         self.__init__db___()  # 初始化数据库连接
         self.loop = asyncio.get_event_loop()
         self.pre_request()  # 调用一次该方法，用来确定加密参数等需要的参数
-
-    @staticmethod
-    def _proxies():
-        # 代理服务器
-        proxy_host = "proxy.abuyun.com"
-        proxy_port = "9020"
-
-        # 代理隧道验证信息
-        proxy_user = "H2T8178GVR83UY1D"
-        proxy_pass = "B8DA67F3801415AA"
-
-        proxy_meta = "http://%(user)s:%(pass)s@%(host)s:%(port)s" % {
-            "host": proxy_host,
-            "port": proxy_port,
-            "user": proxy_user,
-            "pass": proxy_pass,
-        }
-
-        return {
-            "http": proxy_meta,
-            "https": proxy_meta,
-        }
 
     @staticmethod
     def __dict_factory(cursor, row):
