@@ -52,7 +52,7 @@ while hits != 10:
                 d(resourceId="cn.xuexi.android:id/parentPanel").wait(20)
                 d(text="发送").click()
                 d(text="欢迎发表你的观点").click()
-                d(text="好观点将会被优先展示").click()
+                # d(text="好观点将会被优先展示").click()
                 d.set_fastinput_ime(True)
                 d.send_keys("愿祖国繁荣昌盛")
                 d.set_fastinput_ime(False)
