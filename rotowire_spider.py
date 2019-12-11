@@ -67,9 +67,9 @@ def init_logger():
     logger = logging.getLogger(__name__)
     format_pattern = '[%(asctime)s %(levelname)s] %(filename)s:%(lineno)s %(message)s'
     log_formatter = logging.Formatter(format_pattern)
-    logging.basicConfig(level=logging.DEBUG, format=format_pattern)
+    logging.basicConfig(level=logging.INFO, format=format_pattern)
     file_handler = logging.FileHandler('rotowire_spider.log', encoding='utf8')
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(log_formatter)
     logger.addHandler(file_handler)
     return logger
